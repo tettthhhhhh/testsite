@@ -1,0 +1,77 @@
+name: TR TS 032 monitor
+
+on:
+  schedule:
+    - cron: "5 6 * * *"
+  workflow_dispatch:
+    inputs:
+      send_test_email:
+        description: Send a test email
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    env:
+      TZ: Europe/Moscow
+      ALERT_EMAIL_TO: igas312@mail.ru
+      LOOKBACK_DAYS: "7"
+      STATE_PATH: .state/tr_ts_032_seen.json
+      EMAIL_BODY_PATH: .state/tr_ts_032_email.txt
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run TR TS 032 monitor
+        id: monitor
+        run: |
+          args=""
+          if [ "${{ github.event.inputs.send_test_email || 'false' }}" = "true" ]; then
+            args="--send-test"
+          fi
+          python scripts/tr_ts_032_monitor.py $args
+
+      - name: Validate email secrets
+        if: steps.monitor.outputs.send_email == 'true'
+        env:
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+        run: |
+          test -n "$SMTP_USERNAME" || (echo "Missing SMTP_USERNAME secret" && exit 1)
+          test -n "$SMTP_PASSWORD" || (echo "Missing SMTP_PASSWORD secret" && exit 1)
+
+      - name: Send email notification
+        if: steps.monitor.outputs.send_email == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.mail.ru
+          server_port: 465
+          secure: true
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: ${{ steps.monitor.outputs.email_subject }}
+          to: ${{ env.ALERT_EMAIL_TO }}
+          from: ${{ secrets.SMTP_USERNAME }}
+          body: file://${{ steps.monitor.outputs.email_body_file }}
+
+      - name: Commit updated monitor state
+        run: |
+          if git diff --quiet -- .state/tr_ts_032_seen.json; then
+            echo "No state changes to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .state/tr_ts_032_seen.json
+          git commit -m "Update TR TS 032 monitor state"
+          git push
