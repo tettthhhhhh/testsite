@@ -1,6 +1,8 @@
 {
   "bootstrapped": true,
   "seen_source_indexes": [
+    3618990,
+    3618991,
     3652138,
     3658159,
     3658171,
@@ -240,6 +242,6 @@
     3669456
   ],
   "bootstrapped_at": "2026-04-07T12:19:17+00:00",
-  "last_notified_at": "2026-05-05T08:26:57+00:00",
-  "last_notified_count": 8
+  "last_notified_at": "2026-05-07T08:49:17+00:00",
+  "last_notified_count": 2
 }
